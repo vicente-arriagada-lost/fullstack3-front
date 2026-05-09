@@ -1,0 +1,1 @@
+Este repo corresponde al microservicio de inventario

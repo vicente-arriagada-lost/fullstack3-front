@@ -1,0 +1,58 @@
+name: "Kong Production Deploy"
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  KONG_DEPLOY_CONTRACT_PREFIX: /smartlogix/kong/deploy
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: kong-prod-deploy
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (static keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.ACCESS_KEY_SECRET }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve ECR repository
+        id: ecr
+        run: |
+          REPO_URL="$(aws ssm get-parameter --name "${KONG_DEPLOY_CONTRACT_PREFIX}/ecr_repository_url" --query 'Parameter.Value' --output text)"
+          echo "repo_url=${REPO_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push production image
+        id: image
+        run: |
+          SHORT_SHA="${GITHUB_SHA::12}"
+          IMAGE_URI="${{ steps.ecr.outputs.repo_url }}:sha-${SHORT_SHA}"
+          LATEST_URI="${{ steps.ecr.outputs.repo_url }}:main-latest"
+          docker build -t "$IMAGE_URI" -t "$LATEST_URI" .
+          docker push "$IMAGE_URI"
+          docker push "$LATEST_URI"
+          echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy with CodeDeploy (ECS canary)
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.image_uri }}
+        run: |
+          chmod +x .github/scripts/deploy_prod.sh
+          .github/scripts/deploy_prod.sh

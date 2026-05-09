@@ -1,0 +1,115 @@
+locals {
+  use_dedicated_ingress         = var.ingress_mode == "dedicated"
+  use_shared_ingress            = var.ingress_mode == "shared"
+  shared_listener_rule_priority = var.environment == "main" ? 200 : null
+}
+#ejemplo
+resource "aws_security_group" "alb" {
+  count  = local.use_dedicated_ingress ? 1 : 0
+  name   = "alb-sg-smartlogix-${var.environment}"
+  vpc_id = var.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_lb" "main" {
+  count              = local.use_dedicated_ingress ? 1 : 0
+  name               = "alb-smartlogix-${var.environment}"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb[0].id]
+  subnets            = var.public_subnets
+}
+
+resource "aws_lb_target_group" "kong_blue" {
+  name        = "tg-kongb-${var.environment}"
+  port        = 8000
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    path                = "/"
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    matcher             = "200-499"
+  }
+}
+
+resource "aws_lb_target_group" "kong_green" {
+  name        = "tg-kongg-${var.environment}"
+  port        = 8000
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    path                = "/"
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    matcher             = "200-499"
+  }
+}
+
+resource "aws_lb_listener" "http" {
+  count             = local.use_dedicated_ingress ? 1 : 0
+  load_balancer_arn = aws_lb.main[0].arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.kong_blue.arn
+  }
+}
+
+resource "aws_lb_listener_rule" "shared_kong_bootstrap" {
+  count        = local.use_shared_ingress ? 1 : 0
+  listener_arn = var.shared_http_listener_arn
+  priority     = local.shared_listener_rule_priority
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.kong_blue.arn
+  }
+
+  # This rule exists only to keep the target group attached to the shared ALB.
+  # The host value is intentionally non-routable for normal client traffic.
+  condition {
+    host_header {
+      values = ["slot-${var.environment}.internal.invalid"]
+    }
+  }
+
+  lifecycle {
+    # CodeDeploy owns the production route action after the first blue/green
+    # deployment. The rule must keep its host condition and priority, but the
+    # active target group legitimately alternates between blue and green.
+    ignore_changes = [action]
+
+    precondition {
+      condition     = var.shared_http_listener_arn != null
+      error_message = "shared_http_listener_arn es requerido cuando ingress_mode = shared."
+    }
+    precondition {
+      condition     = local.shared_listener_rule_priority != null
+      error_message = "En ingress_mode = shared, environment debe ser 'main'."
+    }
+  }
+}

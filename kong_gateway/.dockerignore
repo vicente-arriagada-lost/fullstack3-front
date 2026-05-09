@@ -1,0 +1,21 @@
+# Exclude VCS and local tooling artifacts
+.git
+.gitignore
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local env/secrets
+.env
+.env.*
+
+# Docs and scratch files not needed in runtime image
+*.md
+*.txt
+
+# Build/test leftovers
+coverage/
+tmp/

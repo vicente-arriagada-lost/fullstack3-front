@@ -1,0 +1,163 @@
+_format_version: "3.0"
+_transform: true
+
+upstreams:
+- name: inventario_upstream
+  algorithm: round-robin
+  slots: 10000
+  healthchecks:
+    passive:
+      type: http
+      healthy:
+        successes: 2
+        http_statuses: [200, 201, 202, 204, 301, 302, 304]
+      unhealthy:
+        http_failures: 3
+        tcp_failures: 3
+        timeouts: 3
+        http_statuses: [429, 500, 502, 503, 504]
+  targets:
+  - target: "inventario.__SERVICE_DISCOVERY_NAMESPACE__:3000"
+    weight: __INVENTARIO_STABLE_WEIGHT__
+  - target: "inventario-canary.__SERVICE_DISCOVERY_NAMESPACE__:3000"
+    weight: __INVENTARIO_CANARY_WEIGHT__
+
+- name: pedidos_upstream
+  algorithm: round-robin
+  slots: 10000
+  healthchecks:
+    passive:
+      type: http
+      healthy:
+        successes: 2
+        http_statuses: [200, 201, 202, 204, 301, 302, 304]
+      unhealthy:
+        http_failures: 3
+        tcp_failures: 3
+        timeouts: 3
+        http_statuses: [429, 500, 502, 503, 504]
+  targets:
+  - target: "pedidos.__SERVICE_DISCOVERY_NAMESPACE__:3000"
+    weight: __PEDIDOS_STABLE_WEIGHT__
+  - target: "pedidos-canary.__SERVICE_DISCOVERY_NAMESPACE__:3000"
+    weight: __PEDIDOS_CANARY_WEIGHT__
+
+- name: envios_upstream
+  algorithm: round-robin
+  slots: 10000
+  healthchecks:
+    passive:
+      type: http
+      healthy:
+        successes: 2
+        http_statuses: [200, 201, 202, 204, 301, 302, 304]
+      unhealthy:
+        http_failures: 3
+        tcp_failures: 3
+        timeouts: 3
+        http_statuses: [429, 500, 502, 503, 504]
+  targets:
+  - target: "envios.__SERVICE_DISCOVERY_NAMESPACE__:3000"
+    weight: __ENVIOS_STABLE_WEIGHT__
+  - target: "envios-canary.__SERVICE_DISCOVERY_NAMESPACE__:3000"
+    weight: __ENVIOS_CANARY_WEIGHT__
+
+- name: notificaciones_upstream
+  algorithm: round-robin
+  slots: 10000
+  healthchecks:
+    passive:
+      type: http
+      healthy:
+        successes: 2
+        http_statuses: [200, 201, 202, 204, 301, 302, 304]
+      unhealthy:
+        http_failures: 3
+        tcp_failures: 3
+        timeouts: 3
+        http_statuses: [429, 500, 502, 503, 504]
+  targets:
+  - target: "notificaciones.__SERVICE_DISCOVERY_NAMESPACE__:3000"
+    weight: __NOTIFICACIONES_STABLE_WEIGHT__
+  - target: "notificaciones-canary.__SERVICE_DISCOVERY_NAMESPACE__:3000"
+    weight: __NOTIFICACIONES_CANARY_WEIGHT__
+
+services:
+- name: health_service
+  host: 127.0.0.1
+  port: 65535
+  protocol: http
+  routes:
+  - name: health_route_root
+    paths: ["/"]
+    methods: ["GET"]
+    strip_path: false
+    plugins:
+    - name: request-termination
+      config:
+        status_code: 200
+        message: "ok"
+
+- name: inventario_service
+  host: inventario_upstream
+  port: 80
+  protocol: http
+  path: /
+  connect_timeout: 3000
+  write_timeout: 15000
+  read_timeout: 15000
+  retries: 5
+  routes:
+  - name: inventario_route
+    paths: ["/api/inventario"]
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    strip_path: false
+    preserve_host: false
+
+- name: pedidos_service
+  host: pedidos_upstream
+  port: 80
+  protocol: http
+  path: /
+  connect_timeout: 3000
+  write_timeout: 15000
+  read_timeout: 15000
+  retries: 5
+  routes:
+  - name: pedidos_route
+    paths: ["/api/pedidos"]
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    strip_path: false
+    preserve_host: false
+
+- name: envios_service
+  host: envios_upstream
+  port: 80
+  protocol: http
+  path: /
+  connect_timeout: 3000
+  write_timeout: 15000
+  read_timeout: 15000
+  retries: 5
+  routes:
+  - name: envios_route
+    paths: ["/api/envios"]
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    strip_path: false
+    preserve_host: false
+
+- name: notificaciones_service
+  host: notificaciones_upstream
+  port: 80
+  protocol: http
+  path: /
+  connect_timeout: 3000
+  write_timeout: 15000
+  read_timeout: 15000
+  retries: 5
+  routes:
+  - name: notificaciones_route
+    paths: ["/api/notificaciones"]
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    strip_path: false
+    preserve_host: false

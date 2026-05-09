@@ -1,0 +1,36 @@
+{
+  "name": "ms_pedido",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Microservicio de pedidos Smartlogix",
+  "main": "dist/main.js",
+  "scripts": {
+    "clean": "node -e \"const fs=require('node:fs'); for (const d of ['dist','dist-test']) fs.rmSync(d,{recursive:true,force:true});\"",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "drop:preview-schema": "node dist/drop-preview-schema.js",
+    "pretest": "npm run clean && tsc -p tsconfig.test.json",
+    "test": "jest --config jest.config.js --runInBand"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sns": "^3.1039.0",
+    "@aws-sdk/client-sqs": "^3.1041.0",
+    "@nestjs/common": "^11.1.19",
+    "@nestjs/core": "^11.1.19",
+    "@nestjs/platform-express": "^11.1.19",
+    "pg": "8.16.3",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.19.17",
+    "@types/pg": "^8.20.0",
+    "jest": "30.0.5",
+    "supertest": "7.1.4",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
